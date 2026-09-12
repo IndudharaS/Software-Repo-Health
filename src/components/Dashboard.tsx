@@ -16,15 +16,10 @@ import { BranchCard } from "@/components/dashboard/BranchCard";
 import { CommunityChecklist } from "@/components/dashboard/CommunityChecklist";
 import { timeAgo } from "@/lib/utils";
 
-const container: Variants = {
-  hidden: { opacity: 0 },
-  show: {
-    opacity: 1,
-    transition: { staggerChildren: 0.06, delayChildren: 0.1 },
-  },
-};
-
-const item: Variants = {
+// Header animates in immediately on mount (it's above the fold). Everything
+// below reveals itself as it scrolls into view via <Reveal>, rather than all
+// at once on load.
+const headerVariants: Variants = {
   hidden: { opacity: 0, y: 16 },
   show: {
     opacity: 1,
@@ -32,6 +27,28 @@ const item: Variants = {
     transition: { duration: 0.5, ease: [0.16, 1, 0.3, 1] as const },
   },
 };
+
+function Reveal({
+  children,
+  className,
+  delay = 0,
+}: {
+  children: React.ReactNode;
+  className?: string;
+  delay?: number;
+}) {
+  return (
+    <motion.div
+      className={className}
+      initial={{ opacity: 0, y: 28 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true, margin: "-80px" }}
+      transition={{ duration: 0.6, delay, ease: [0.16, 1, 0.3, 1] }}
+    >
+      {children}
+    </motion.div>
+  );
+}
 
 export function Dashboard({
   analysis,
@@ -43,14 +60,11 @@ export function Dashboard({
   const { overview } = analysis;
 
   return (
-    <motion.div
-      initial="hidden"
-      animate="show"
-      variants={container}
-      className="mx-auto w-full max-w-6xl px-4 py-10 sm:px-6 sm:py-14"
-    >
+    <div className="mx-auto w-full max-w-6xl px-4 py-10 sm:px-6 sm:py-14">
       <motion.div
-        variants={item}
+        initial="hidden"
+        animate="show"
+        variants={headerVariants}
         className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between"
       >
         <div className="min-w-0">
@@ -89,11 +103,11 @@ export function Dashboard({
         </button>
       </motion.div>
 
-      <motion.div variants={item} className="mb-6">
+      <Reveal className="mb-6">
         <OverviewGrid overview={overview} branches={analysis.branches} />
-      </motion.div>
+      </Reveal>
 
-      <motion.div variants={item} className="mb-6">
+      <Reveal className="mb-6">
         <Card className="flex flex-col items-center gap-8 sm:flex-row sm:items-start">
           <div className="shrink-0">
             <ScoreGauge score={analysis.score} />
@@ -102,40 +116,40 @@ export function Dashboard({
             <ScoreBreakdown score={analysis.score} />
           </div>
         </Card>
-      </motion.div>
+      </Reveal>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-        <motion.div variants={item} className="lg:col-span-2">
+        <Reveal className="lg:col-span-2">
           <CommitActivityChart
             data={analysis.commitActivity}
             pending={analysis.statsPending}
           />
-        </motion.div>
-        <motion.div variants={item}>
+        </Reveal>
+        <Reveal delay={0.1}>
           <LanguageDonut languages={analysis.languages} />
-        </motion.div>
+        </Reveal>
 
-        <motion.div variants={item} className="lg:col-span-2">
+        <Reveal className="lg:col-span-2">
           <ContributorsChart
             contributors={analysis.contributors}
             total={analysis.totalContributors}
             pending={analysis.statsPending}
           />
-        </motion.div>
-        <motion.div variants={item}>
+        </Reveal>
+        <Reveal delay={0.1}>
           <BranchCard branches={analysis.branches} />
-        </motion.div>
+        </Reveal>
 
-        <motion.div variants={item}>
+        <Reveal>
           <PullRequestCard pr={analysis.pullRequests} />
-        </motion.div>
-        <motion.div variants={item}>
+        </Reveal>
+        <Reveal delay={0.08}>
           <IssueCard issues={analysis.issues} />
-        </motion.div>
-        <motion.div variants={item}>
+        </Reveal>
+        <Reveal delay={0.16}>
           <CommunityChecklist community={analysis.community} />
-        </motion.div>
+        </Reveal>
       </div>
-    </motion.div>
+    </div>
   );
 }

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
 import { ArrowRight, Terminal, Loader2 } from "lucide-react";
+import { useTilt } from "@/hooks/useTilt";
 
 const EXAMPLES = ["facebook/react", "vercel/next.js", "microsoft/vscode"];
 
@@ -14,6 +15,7 @@ export function RepoForm({
   loading: boolean;
 }) {
   const [value, setValue] = useState("");
+  const { ref, rotateX, rotateY, onPointerMove, onPointerLeave } = useTilt(4);
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -24,7 +26,13 @@ export function RepoForm({
   return (
     <div className="w-full max-w-2xl">
       <form onSubmit={handleSubmit} className="relative">
-        <div className="glass flex items-center gap-3 rounded-2xl px-4 py-3 sm:px-5 sm:py-4 transition-shadow focus-within:shadow-[0_0_0_1px_var(--accent),0_0_40px_-10px_var(--accent)]">
+        <motion.div
+          ref={ref}
+          onPointerMove={onPointerMove}
+          onPointerLeave={onPointerLeave}
+          style={{ rotateX, rotateY, transformPerspective: 800 }}
+          className="glass flex items-center gap-3 rounded-2xl px-4 py-3 sm:px-5 sm:py-4 transition-shadow focus-within:shadow-[0_0_0_1px_var(--accent),0_0_40px_-10px_var(--accent)]"
+        >
           <Terminal className="size-5 shrink-0 text-muted" />
           <input
             value={value}
@@ -49,7 +57,7 @@ export function RepoForm({
               </>
             )}
           </motion.button>
-        </div>
+        </motion.div>
       </form>
       <div className="mt-4 flex flex-wrap items-center gap-2 text-sm text-muted">
         <span>Try:</span>
