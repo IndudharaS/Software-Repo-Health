@@ -166,6 +166,12 @@ export async function fetchContributorStats(
           login: c.author!.login ?? "unknown",
           avatarUrl: c.author!.avatar_url ?? "",
           contributions: c.total,
+          weeks: (c.weeks ?? [])
+            .filter((w) => (w.c ?? 0) > 0)
+            .map((w) => ({
+              weekStart: new Date((w.w ?? 0) * 1000).toISOString(),
+              commits: w.c ?? 0,
+            })),
         }))
         .sort((a, b) => b.contributions - a.contributions);
       return { contributors, pending: false };

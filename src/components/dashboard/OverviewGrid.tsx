@@ -11,7 +11,7 @@ function Stat({
   value,
   index,
 }: {
-  icon: React.ElementType;
+  icon: React.ComponentType<{ className?: string }>;
   label: string;
   value: string;
   index: number;

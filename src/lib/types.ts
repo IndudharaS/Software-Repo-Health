@@ -35,10 +35,16 @@ export interface CommitWeek {
   total: number;
 }
 
+export interface ContributorActiveWeek {
+  weekStart: string;
+  commits: number;
+}
+
 export interface Contributor {
   login: string;
   avatarUrl: string;
   contributions: number;
+  weeks: ContributorActiveWeek[];
 }
 
 export interface LanguageBreakdown {

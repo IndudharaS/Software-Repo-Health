@@ -14,6 +14,7 @@ import { PullRequestCard } from "@/components/dashboard/PullRequestCard";
 import { IssueCard } from "@/components/dashboard/IssueCard";
 import { BranchCard } from "@/components/dashboard/BranchCard";
 import { CommunityChecklist } from "@/components/dashboard/CommunityChecklist";
+import { NetworkGraphSection } from "@/components/dashboard/NetworkGraphSection";
 import { timeAgo } from "@/lib/utils";
 
 // Header animates in immediately on mount (it's above the fold). Everything
@@ -116,6 +117,13 @@ export function Dashboard({
             <ScoreBreakdown score={analysis.score} />
           </div>
         </Card>
+      </Reveal>
+
+      <Reveal className="mb-6">
+        <NetworkGraphSection
+          contributors={analysis.contributors}
+          pending={analysis.statsPending}
+        />
       </Reveal>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
