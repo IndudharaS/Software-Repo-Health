@@ -8,6 +8,8 @@ import type {
   PullRequestStats,
   IssueStats,
   BranchInfo,
+  BranchActivityEntry,
+  DependencyGraphData,
 } from "./types";
 
 export class RepoNotFoundError extends Error {
@@ -56,6 +58,14 @@ function getOctokit(): Octokit {
   return new Octokit({
     auth: process.env.GITHUB_TOKEN,
     userAgent: "repo-health-analyzer",
+    // A stale/hung keep-alive connection can otherwise leave a request
+    // pending for minutes instead of failing fast (observed: a single
+    // request hanging ~369s). This aborts the underlying connection —
+    // not just the promise — so hung sockets don't pile up and starve
+    // later requests too.
+    request: {
+      signal: AbortSignal.timeout(20000),
+    },
   });
 }
 
@@ -223,6 +233,199 @@ export async function fetchBranches(
     defaultBranch,
     names: data.slice(0, 15).map((b) => b.name),
   };
+}
+
+function withTimeout<T>(promise: Promise<T>, ms: number, fallback: T): Promise<T> {
+  return new Promise((resolve) => {
+    const timer = setTimeout(() => resolve(fallback), ms);
+    promise.then(
+      (v) => {
+        clearTimeout(timer);
+        resolve(v);
+      },
+      () => {
+        clearTimeout(timer);
+        resolve(fallback);
+      }
+    );
+  });
+}
+
+// Branches are fetched individually (GitHub has no bulk "ahead/behind" endpoint),
+// so each call is capped at 6s — a single slow/rate-limited branch shouldn't be
+// able to stall the whole analysis for a minute.
+export async function fetchBranchActivity(
+  octokit: Octokit,
+  owner: string,
+  repo: string,
+  branchNames: string[],
+  defaultBranch: string
+): Promise<BranchActivityEntry[]> {
+  const candidates = branchNames.slice(0, 8);
+  const PER_CALL_TIMEOUT_MS = 6000;
+
+  const results = await Promise.all(
+    candidates.map(async (name) => {
+      if (name === defaultBranch) {
+        return withTimeout(
+          octokit.rest.repos
+            .getBranch({ owner, repo, branch: name })
+            .then(({ data }) => ({
+              name,
+              isDefault: true,
+              aheadBy: 0,
+              behindBy: 0,
+              lastCommitAt: data.commit.commit.committer?.date ?? null,
+            })),
+          PER_CALL_TIMEOUT_MS,
+          { name, isDefault: true, aheadBy: 0, behindBy: 0, lastCommitAt: null }
+        );
+      }
+      return withTimeout(
+        octokit.rest.repos
+          .compareCommitsWithBasehead({
+            owner,
+            repo,
+            basehead: `${defaultBranch}...${name}`,
+          })
+          .then(({ data }) => {
+            const lastCommit = data.commits[data.commits.length - 1];
+            return {
+              name,
+              isDefault: false,
+              aheadBy: data.ahead_by,
+              behindBy: data.behind_by,
+              lastCommitAt: lastCommit?.commit.committer?.date ?? null,
+            };
+          }),
+        PER_CALL_TIMEOUT_MS,
+        { name, isDefault: false, aheadBy: 0, behindBy: 0, lastCommitAt: null }
+      );
+    })
+  );
+
+  return results;
+}
+
+const MANIFEST_PRIORITY = [
+  "package.json",
+  "requirements.txt",
+  "pyproject.toml",
+  "Pipfile",
+  "go.mod",
+  "Gemfile",
+  "composer.json",
+  "pom.xml",
+  "build.gradle",
+  "build.gradle.kts",
+  "Cargo.toml",
+];
+
+interface RawManifest {
+  filename: string;
+  blobPath: string;
+  dependenciesCount: number | null;
+  dependencies: {
+    totalCount: number;
+    nodes: { packageName: string; packageManager: string | null; requirements: string; relationship: string }[];
+  } | null;
+}
+
+function pickBestManifest(manifests: RawManifest[]): RawManifest | null {
+  const candidates = manifests.filter(
+    (m) => !m.blobPath.includes("/.github/") && (m.dependenciesCount ?? 0) > 0
+  );
+  if (candidates.length === 0) return null;
+
+  function depth(m: RawManifest) {
+    return m.blobPath.split("/").filter(Boolean).length;
+  }
+
+  candidates.sort((a, b) => {
+    const aP = MANIFEST_PRIORITY.indexOf(a.filename);
+    const bP = MANIFEST_PRIORITY.indexOf(b.filename);
+    const aPriority = aP === -1 ? 999 : aP;
+    const bPriority = bP === -1 ? 999 : bP;
+    if (aPriority !== bPriority) return aPriority - bPriority;
+    return depth(a) - depth(b);
+  });
+
+  return candidates[0];
+}
+
+export async function fetchDependencyGraph(
+  octokit: Octokit,
+  owner: string,
+  repo: string
+): Promise<DependencyGraphData> {
+  const empty: DependencyGraphData = {
+    manifestFilename: null,
+    dependencies: [],
+    totalInManifest: 0,
+  };
+
+  return withTimeout(fetchDependencyGraphInner(octokit, owner, repo), 10000, empty);
+}
+
+async function fetchDependencyGraphInner(
+  octokit: Octokit,
+  owner: string,
+  repo: string
+): Promise<DependencyGraphData> {
+  const empty: DependencyGraphData = {
+    manifestFilename: null,
+    dependencies: [],
+    totalInManifest: 0,
+  };
+
+  try {
+    const result = await octokit.graphql<{
+      repository: {
+        dependencyGraphManifests: { nodes: RawManifest[] };
+      } | null;
+    }>(
+      `query($owner: String!, $repo: String!) {
+        repository(owner: $owner, name: $repo) {
+          dependencyGraphManifests(first: 50, withDependencies: true) {
+            nodes {
+              filename
+              blobPath
+              dependenciesCount
+              dependencies(first: 40) {
+                totalCount
+                nodes {
+                  packageName
+                  packageManager
+                  requirements
+                  relationship
+                }
+              }
+            }
+          }
+        }
+      }`,
+      { owner, repo }
+    );
+
+    const manifests = result.repository?.dependencyGraphManifests.nodes ?? [];
+    const best = pickBestManifest(manifests);
+    if (!best || !best.dependencies) return empty;
+
+    const direct = best.dependencies.nodes.filter((d) => d.relationship === "direct");
+    const chosen = direct.length > 0 ? direct : best.dependencies.nodes;
+
+    return {
+      manifestFilename: best.filename,
+      dependencies: chosen.slice(0, 40).map((d) => ({
+        packageName: d.packageName,
+        packageManager: d.packageManager,
+        requirements: d.requirements,
+      })),
+      totalInManifest: best.dependencies.totalCount,
+    };
+  } catch {
+    return empty;
+  }
 }
 
 async function searchCount(

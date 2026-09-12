@@ -5,6 +5,7 @@ import { Canvas, useFrame } from "@react-three/fiber";
 import { Line, Html, OrbitControls } from "@react-three/drei";
 import type { Group } from "three";
 import { SEQUENTIAL_BLUE } from "@/lib/chart-colors";
+import { cn } from "@/lib/utils";
 import type { Contributor } from "@/lib/types";
 
 interface GraphNode {
@@ -88,13 +89,19 @@ function Node({
           toneMapped={false}
         />
       </mesh>
-      {hovered && (
-        <Html distanceFactor={9} center style={{ pointerEvents: "none" }}>
-          <div className="whitespace-nowrap rounded-md bg-black/80 px-2 py-1 text-xs text-white shadow-lg">
-            {node.login} · {node.contributions.toLocaleString()} commits
-          </div>
-        </Html>
-      )}
+      <Html distanceFactor={9} center style={{ pointerEvents: "none" }}>
+        <div
+          className={cn(
+            "whitespace-nowrap rounded-md px-2 py-1 text-xs shadow-lg transition-all",
+            hovered
+              ? "scale-110 bg-black/85 text-white"
+              : "bg-black/40 text-white/70"
+          )}
+        >
+          {node.login}
+          {hovered && ` · ${node.contributions.toLocaleString()} commits`}
+        </div>
+      </Html>
     </group>
   );
 }

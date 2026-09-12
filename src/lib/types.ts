@@ -75,6 +75,26 @@ export interface BranchInfo {
   names: string[];
 }
 
+export interface BranchActivityEntry {
+  name: string;
+  isDefault: boolean;
+  aheadBy: number;
+  behindBy: number;
+  lastCommitAt: string | null;
+}
+
+export interface DependencyEntry {
+  packageName: string;
+  packageManager: string | null;
+  requirements: string;
+}
+
+export interface DependencyGraphData {
+  manifestFilename: string | null;
+  dependencies: DependencyEntry[];
+  totalInManifest: number;
+}
+
 export interface ScoreBreakdown {
   key: string;
   label: string;
@@ -100,6 +120,8 @@ export interface RepoAnalysis {
   pullRequests: PullRequestStats;
   issues: IssueStats;
   branches: BranchInfo;
+  branchActivity: BranchActivityEntry[];
+  dependencyGraph: DependencyGraphData;
   score: HealthScore;
   statsPending: boolean;
 }

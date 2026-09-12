@@ -15,6 +15,7 @@ import { IssueCard } from "@/components/dashboard/IssueCard";
 import { BranchCard } from "@/components/dashboard/BranchCard";
 import { CommunityChecklist } from "@/components/dashboard/CommunityChecklist";
 import { NetworkGraphSection } from "@/components/dashboard/NetworkGraphSection";
+import { DependencyGraphSection } from "@/components/dashboard/DependencyGraphSection";
 import { timeAgo } from "@/lib/utils";
 
 // Header animates in immediately on mount (it's above the fold). Everything
@@ -126,6 +127,13 @@ export function Dashboard({
         />
       </Reveal>
 
+      <Reveal className="mb-6">
+        <DependencyGraphSection
+          repoLabel={overview.name}
+          data={analysis.dependencyGraph}
+        />
+      </Reveal>
+
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         <Reveal className="lg:col-span-2">
           <CommitActivityChart
@@ -145,7 +153,10 @@ export function Dashboard({
           />
         </Reveal>
         <Reveal delay={0.1}>
-          <BranchCard branches={analysis.branches} />
+          <BranchCard
+            branches={analysis.branches}
+            activity={analysis.branchActivity}
+          />
         </Reveal>
 
         <Reveal>
