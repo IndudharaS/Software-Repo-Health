@@ -101,29 +101,3 @@ export interface RepoAnalysis {
 export interface AnalyzeErrorResponse {
   error: string;
 }
-
-export interface ArchitecturalSmell {
-  type: string | null;
-  component: string | null;
-  sourceFile: string;
-  raw: Record<string, unknown>;
-}
-
-export type DeepScanStatus = "queued" | "running" | "done" | "error";
-
-export interface DeepScanJob {
-  id: string;
-  repoUrl: string;
-  status: DeepScanStatus;
-  queuePosition?: number;
-  createdAt: number;
-  startedAt: number | null;
-  finishedAt: number | null;
-  error: string | null;
-  logTail: string[];
-  result: {
-    outputFiles: string[];
-    smells: ArchitecturalSmell[] | null;
-    rawFiles: Record<string, unknown>;
-  } | null;
-}

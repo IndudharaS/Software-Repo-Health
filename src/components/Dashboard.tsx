@@ -14,7 +14,6 @@ import { PullRequestCard } from "@/components/dashboard/PullRequestCard";
 import { IssueCard } from "@/components/dashboard/IssueCard";
 import { BranchCard } from "@/components/dashboard/BranchCard";
 import { CommunityChecklist } from "@/components/dashboard/CommunityChecklist";
-import { DeepScanCard } from "@/components/dashboard/DeepScanCard";
 import { timeAgo } from "@/lib/utils";
 
 const container: Variants = {
@@ -135,13 +134,6 @@ export function Dashboard({
         </motion.div>
         <motion.div variants={item}>
           <CommunityChecklist community={analysis.community} />
-        </motion.div>
-        <motion.div variants={item} className="lg:col-span-3">
-          <DeepScanCard
-            repoUrl={overview.url}
-            sizeKb={overview.sizeKb}
-            language={analysis.languages[0]?.name ?? null}
-          />
         </motion.div>
       </div>
     </motion.div>

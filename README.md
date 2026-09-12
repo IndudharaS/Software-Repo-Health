@@ -15,13 +15,6 @@ Recharts, and the GitHub REST API via Octokit.
   (`src/lib/health-score.ts`).
 - All GitHub API calls happen server-side using a `GITHUB_TOKEN`, so it never
   reaches the browser and every visitor shares one rate-limit budget.
-- For Java repos, an optional **deep architecture scan** runs the real
-  [Arcan](https://arcan.tech) tool to detect architectural smells (cyclic
-  dependencies, god components, hub-like/unstable dependencies). This needs
-  a separate always-on worker service — see [`worker/README.md`](worker/README.md) —
-  since it clones and statically analyzes source and takes minutes, which
-  doesn't fit Vercel's serverless model. Without it deployed, the dashboard
-  still works fully; the deep-scan button just explains it isn't configured.
 
 ## Getting started
 
@@ -58,10 +51,6 @@ Recharts, and the GitHub REST API via Octokit.
    `GITHUB_TOKEN` with your token value (this is required — without it the
    app will hit rate limits almost immediately once shared).
 3. Deploy. No other configuration is needed.
-4. (Optional) To enable the Java deep-scan feature, deploy the worker in
-   [`worker/`](worker/README.md) to Fly.io first, then add `ARCAN_WORKER_URL`
-   (and `ARCAN_WORKER_TOKEN`, if you set one on the worker) to the same
-   Vercel environment variables.
 
 ## Notes on the health score
 
