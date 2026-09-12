@@ -1,36 +1,81 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Repo Health
 
-## Getting Started
+Paste a GitHub repository URL and get an instant health report: commit
+activity, contributor diversity, pull request velocity, issue resolution,
+community health files, and a single 0–100 health score.
 
-First, run the development server:
+Built with Next.js (App Router), TypeScript, Tailwind CSS, Framer Motion,
+Recharts, and the GitHub REST API via Octokit.
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+## How it works
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+- `POST /api/analyze` takes a GitHub URL, fetches repo metadata, community
+  profile, commit/contributor stats, languages, branches, and PR/issue counts
+  from the GitHub API, then computes a weighted health score
+  (`src/lib/health-score.ts`).
+- All GitHub API calls happen server-side using a `GITHUB_TOKEN`, so it never
+  reaches the browser and every visitor shares one rate-limit budget.
+- For Java repos, an optional **deep architecture scan** runs the real
+  [Arcan](https://arcan.tech) tool to detect architectural smells (cyclic
+  dependencies, god components, hub-like/unstable dependencies). This needs
+  a separate always-on worker service — see [`worker/README.md`](worker/README.md) —
+  since it clones and statically analyzes source and takes minutes, which
+  doesn't fit Vercel's serverless model. Without it deployed, the dashboard
+  still works fully; the deep-scan button just explains it isn't configured.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Getting started
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+1. Install dependencies:
 
-## Learn More
+   ```bash
+   npm install
+   ```
 
-To learn more about Next.js, take a look at the following resources:
+2. Create a GitHub personal access token (Settings → Developer settings →
+   Personal access tokens → fine-grained; no special permissions are needed
+   for public repos) and copy `.env.example` to `.env.local`:
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+   ```bash
+   cp .env.example .env.local
+   ```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+   Then paste your token as `GITHUB_TOKEN=...`. Without a token, requests are
+   limited to 60/hour (shared across everyone using the app); with one, the
+   limit is 5,000/hour.
 
-## Deploy on Vercel
+3. Run the dev server:
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+   ```bash
+   npm run dev
+   ```
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+   Open [http://localhost:3000](http://localhost:3000).
+
+## Deploying to Vercel
+
+1. Push this repo to GitHub and import it at [vercel.com/new](https://vercel.com/new).
+2. In the Vercel project's **Settings → Environment Variables**, add
+   `GITHUB_TOKEN` with your token value (this is required — without it the
+   app will hit rate limits almost immediately once shared).
+3. Deploy. No other configuration is needed.
+4. (Optional) To enable the Java deep-scan feature, deploy the worker in
+   [`worker/`](worker/README.md) to Fly.io first, then add `ARCAN_WORKER_URL`
+   (and `ARCAN_WORKER_TOKEN`, if you set one on the worker) to the same
+   Vercel environment variables.
+
+## Notes on the health score
+
+The score (`src/lib/health-score.ts`) weights five categories out of 100:
+
+- **Activity & recency (25):** how recently the repo was pushed to, and how
+  many of the last 52 weeks had at least one commit.
+- **Community health (20):** GitHub's own community profile percentage
+  (README, license, contributing guide, code of conduct, issue/PR templates).
+- **Pull request velocity (20):** merge rate and average time-to-merge over
+  the most recent closed PRs.
+- **Issue resolution (15):** close rate and average time-to-close over the
+  most recent closed issues.
+- **Contributor diversity (15):** number of contributors, penalized if one
+  person dominates commit volume (bus-factor risk).
+
+Archived repositories are capped at 25 points regardless of the above.
